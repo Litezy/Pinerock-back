@@ -5,7 +5,6 @@ exports.ServerError = (res, error) => {
 }
 exports.Excludes = [
     "dial_code",
-    "phone",
     "password",
     "reset_code",
     "status",
@@ -22,4 +21,39 @@ exports.Excludes = [
     "createdAt",
     "updatedAt",
 ]
-exports.ExcludeNames = ['password', 'role', 'resetcode']
+exports.KycExcludes = [
+    "dial_code",
+    "password",
+    "reset_code",
+    "status",
+    "pin",
+    "refid",
+    "upline",
+    "verified",
+    "suspended",
+    "lastlogin",
+    "account_number",
+    "createdAt",
+    "updatedAt",
+]
+exports.TicketExcludes = [
+    "dial_code",
+    "password",
+    "reset_code",
+    "pin",
+    "refid",
+    "upline",
+    "gender",
+    "verified",
+    "suspended",
+    "lastlogin",
+    "account_number",
+    "country",
+    "state",
+    "balance",
+    "currency",
+    "phone",
+    "createdAt",
+    "updatedAt",
+]
+exports.ExcludeNames = ['password', 'resetcode']
