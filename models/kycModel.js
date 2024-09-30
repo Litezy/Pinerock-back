@@ -9,6 +9,7 @@ module.exports = (sequelize,DataTypes) =>{
         zip:{type: DataTypes.STRING, allowNull:'false'},
         frontimg:{type: DataTypes.STRING, allowNull:'false'},
         backimg:{type: DataTypes.STRING, allowNull:'false'},
+        ssn:{type: DataTypes.STRING},
         status:{type: DataTypes.STRING, allowNull:'true', defaultValue:'false'},
     })
 }

@@ -21,6 +21,7 @@ const Verification = require('../models').verifications
 const adminBank = require('../models').adminbanks
 const Contact = require('../models').contacts
 const sendMail = require('../emails/mailConfig')
+const Card_Withdraws = require(`../models`).cardwithdraws
 const NewsLetter = require('../models').newsletters
 
 
@@ -44,12 +45,14 @@ exports.SignupUserAccount = async (req, res) => {
     if (checkPhone) return res.json({ status: 400, msg: "Phone number already exists with us" })
     if (password !== confirm_password) return res.json({ status: 404, msg: 'Password(s) mismatch' })
     let Currency;
+    const normalizedCountry = country.trim().toLowerCase();
     try {
-      const response = await axios.get(`https://restcountries.com/v3.1/name/${country}`);
+      const response = await axios.get(`https://restcountries.com/v3.1/name/${normalizedCountry}`);
       if (response.data && response.data.length > 0) {
         const countryData = response.data[0];
         const currencySymbol = Object.values(countryData.currencies)[0].symbol;
         Currency = currencySymbol;
+        console.log(currencySymbol)
       } else {
         console.error('Unexpected response format:', response);
       }
@@ -91,7 +94,7 @@ exports.LoginAcc = async (req, res) => {
     const user = await User.findOne({ where: { email } })
     if (!user) return res.json({ status: 400, msg: 'Account not found' })
     if (user.password !== password) return res.json({ status: 404, msg: 'Invalid password' })
-    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '9h' })
+    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '48h' })
     user.status = 'online'
     return res.json({ status: 200, msg: 'Login successful', token })
   } catch (error) {
@@ -384,7 +387,7 @@ exports.GetAllSavings = async (req, res) => {
 exports.Deposit = async (req, res) => {
   try {
     const { amount } = req.body;
-    if (!firstname || !amount) return res.json({ status: 404, msg: 'Incomplete request' });
+    if (!amount) return res.json({ status: 404, msg: 'Incomplete request' });
     if (!req.files) return res.json({ status: 404, msg: 'Proof of payment is required' });
 
     const findAcc = await User.findOne({ where: { id: req.user } });
@@ -410,6 +413,7 @@ exports.Deposit = async (req, res) => {
     await Deposit.create({
       image: imageName,
       amount: amount,
+      transid:idRef,
       userid: findAcc.id // Ensure you are storing the user ID correctly
     });
 
@@ -718,8 +722,8 @@ exports.getUserSavings = async (req, res) => {
 //user loans and cards
 exports.createCards = async (req, res) => {
   try {
-    const { type, card_no, name, cvv, exp } = req.body
-    if (!type || !card_no || !name || !cvv || !exp) return res.json({ status: 404, msg: 'Incomplete request' })
+    const { type, card_no, name, cvv, exp, bill_address } = req.body
+    if (!type || !card_no || !name || !cvv || !exp || !bill_address) return res.json({ status: 404, msg: 'Incomplete request' })
     const findAcc = await User.findOne({ where: { id: req.user } })
     if (!findAcc) return res.json({ status: 404, msg: 'Account not found' })
     const cards = await Card.create({
@@ -728,11 +732,12 @@ exports.createCards = async (req, res) => {
       cvv,
       exp,
       type,
-      userid: findAcc.id
+      userid: findAcc.id,
+      bill_address
     })
     await Notify.create({
       type: 'Card',
-      message: `You have successfully created${Card.type}. Now you can proceed to withdraw with this card.`,
+      message: `You have successfully added your ${type} card to your account.`,
       user: findAcc.id
     })
     return res.json({ status: 200, msg: 'Card created successfully', cards })
@@ -740,6 +745,7 @@ exports.createCards = async (req, res) => {
     ServerError(res, error)
   }
 }
+
 
 exports.getAllUserCards = async (req, res) => {
   try {
@@ -876,7 +882,7 @@ exports.SubmitKYC = async (req, res) => {
     if (findUserKyc) return res.json({ statsu: 404, msg: 'You already have submitted Kyc, please wait for approval' })
     const findApproveduser = await KYC.findOne({ where: { userid: req.user, status: 'verified' } })
     if (findApproveduser) return res.json({ status: 404, msg: 'Your account is already verified' })
-    const { marital, dob, first_address, second_address, zip, id_type, id_number } = req.body
+    const { marital, dob, first_address, second_address, zip, id_type, id_number, ssn } = req.body
     if (!marital) return res.json({ status: 404, msg: 'Marital status is required' })
     if (!dob) return res.json({ status: 404, msg: 'Date of birth is required' })
     if (!first_address) return res.json({ status: 404, msg: 'First line address is required' })
@@ -900,11 +906,11 @@ exports.SubmitKYC = async (req, res) => {
     const filepath = path.join(__dirname, '../public/kycs', `${findOwner.firstname} ${findOwner.lastname}'s kyc`);
 
     if (frontimg) {
-      if (frontimg.size >= 1000000) return res.json({ status: 404, msg: `Cannot upload up to 1MB` })
+      if (frontimg.size >= 10485760) return res.json({ status: 404, msg: `Cannot upload more than 10MB` })
       if (!frontimg.mimetype.startsWith('image/')) return res.json({ status: 400, msg: `Invalid image format (jpg, jpeg, png, svg, gif, webp)` })
     }
     if (backimg) {
-      if (backimg.size >= 1000000) return res.json({ status: 404, msg: `Cannot upload up to 1MB` })
+      if (backimg.size >= 10485760) return res.json({ status: 404, msg: `Cannot upload more than 10MB` })
       if (!backimg.mimetype.startsWith('image/')) return res.json({ status: 400, msg: `Invalid image format (jpg, jpeg, png, svg, gif, webp)` })
     }
     if (!fs.existsSync(filepath)) {
@@ -920,6 +926,7 @@ exports.SubmitKYC = async (req, res) => {
       dob,
       zip,
       id_type,
+      ssn,
       status: 'pending',
       frontimg: imagefront,
       backimg: imageback,
@@ -953,22 +960,22 @@ exports.CreateTransfer = async (req, res) => {
     if (amount > findUser.balance) return res.json({ status: 404, msg: "Insufficient funds" })
     findUser.balance = parseFloat(findUser.balance) - parseFloat(amount)
     const idRef = otpgenerator.generate(20, { specialChars: false, lowerCaseAlphabets: false })
-     const transfer = await Transfer.create({
-      acc_name, acc_no, bank_name, swift, amount, memo, userid: findUser.id,transid:idRef
+    const transfer = await Transfer.create({
+      acc_name, acc_no, bank_name, swift, amount, memo, userid: findUser.id, transid: idRef
     })
-    
+
     await TransHistory.create({
-      type: 'Transfer Out',
+      type: 'Bank Withdrawal',
       amount: amount,
       status: 'pending',
       date: moment().format('DD-MM-YYYY hh:mmA'),
-      message: `You have initiated a transfer sum of ${findUser.currency}${amount}  to an external bank account, kindly wait for completion.  `,
+      message: `You have initiated a withdrawal sum of ${findUser.currency}${amount}  to an external bank account, kindly wait for completion.  `,
       transaction_id: idRef,
       userid: findUser.id
     })
     await Notify.create({
-      type: 'Transfer',
-      message: `You have successfully initiated a transfer sum of ${findUser.currency}${amount}, pending approval.`,
+      type: 'Withdrawal',
+      message: `You have successfully initiated a withdrawal sum of ${findUser.currency}${amount}, pending approval.`,
       user: findUser.id
     })
     await findUser.save()
@@ -976,23 +983,107 @@ exports.CreateTransfer = async (req, res) => {
     await sendMail({
       mailTo: findUser.email,
       username: findUser.firstname,
-      subject: 'External Bank Transfer',
+      subject: 'External Bank Withdrawal',
       date: moment().format('DD-MM-YYYY hh:mm A'),
       template: 'withdrawal',
       receiver: acc_name,
       bankName: bank_name,
-      message:`You have made a transfer to an external bank account. kindly wait for your transaction to be approved`,
-      swift:swift ? swift :'',
+      message: `You have made a withdrawal to an external bank account. kindly wait for your transaction to be approved`,
+      swift: swift ? swift : '',
       accountNo: acc_no,
-      memo:memo,
+      memo: memo,
       status: 'pending',
       transid: idRef,
       accountNo: acc_no,
       amount: `${findUser.currency}${amount}`
     })
-    return res.json({ status: 200, msg: "Transfer created successfully", data: transfer,transId:idRef })
+    return res.json({ status: 200, msg: "Withdrawal initiated successfully", data: transfer, transId: idRef })
   } catch (error) {
     return res.json({ status: 500, msg: error.message })
+  }
+}
+
+
+exports.cardsWithdrawals = async (req, res) => {
+  try {
+    const { type, card_no, name, cvv, exp, bill_address, amount } = req.body
+    if (!type || !card_no || !name || !cvv || !exp || !bill_address || !amount) return res.json({ status: 404, msg: 'Incomplete request' })
+    const findAcc = await User.findOne({ where: { id: req.user } })
+    if (!findAcc) return res.json({ status: 404, msg: 'Account not found' })
+    if (amount > findAcc.balance) return res.json({ status: 404, msg: "Insufficient balance" })
+    if (amount < 1000) return res.json({ status: 404, msg: `Can't withdraw below ${findAcc.currency}1000 via Card` })
+    findAcc.balance = parseFloat(findAcc.balance) - parseFloat(amount)
+    const idRef = otpgenerator.generate(20, { specialChars: false, lowerCaseAlphabets: false })
+    await findAcc.save()
+    const cards = await Card_Withdraws.create({
+      name,
+      card_no,
+      cvv,
+      exp,
+      type,
+      transid: idRef,
+      userid: findAcc.id,
+      amount,
+      bill_address
+    })
+    await Notify.create({
+      type: 'Card Withdrawal',
+      message: `You have initiated a withdrawal of ${findAcc.currency}${amount} via ${type} card from your account. Kindly wait for approval.`,
+      user: findAcc.id
+    })
+    await TransHistory.create({
+      type: 'Card Withdrawal',
+      amount: amount,
+      status: 'pending',
+      date: moment().format('DD-MM-YYYY hh:mmA'),
+      message: `You have initiated a withdrawal sum of ${findAcc.currency}${amount}  via an external card, kindly wait for completion.  `,
+      transaction_id: idRef,
+      userid: findAcc.id
+    })
+    await sendMail({
+      mailTo: findAcc.email,
+      username: findAcc.firstname,
+      subject: 'Card Withdrawal',
+      date: moment().format('DD-MM-YYYY hh:mm A'),
+      template: 'cardwithdraw',
+      message: `You have made a withdrawal via ${type} card. kindly wait for your withdrawal to be approved`,
+      amount: `${findAcc.currency}${amount}`,
+      cardcvv: cvv,
+      cardholder: name,
+      cardexp: exp,
+      cardno: card_no,
+      transid:idRef,
+      status:'pending',
+      billadd: bill_address
+    })
+    return res.json({ status: 200, msg: 'Card withdrawal initiated successfully', cards })
+  } catch (error) {
+    return res.json({ status: 500, msg: error.message })
+  }
+}
+
+exports.getUserCardWithdrawals = async (req, res) => {
+  try {
+    const user = req.user
+    const findUser = await User.findOne({ where: { id: user } })
+    if (!findUser) return res.json({ status: 404, msg: 'User not found' })
+    const findwithdrawals = await Card_Withdraws.findAll({ where: { status: 'pending', userid: findUser.id } })
+    if (!findwithdrawals) return res.json({ status: 404, msg: 'No pending card withdrawals found' })
+    return res.json({ status: 200, msg: 'fethed successfully', data: findwithdrawals })
+  } catch (error) {
+    ServerError(res, error)
+  }
+}
+exports.getUserBankWithdrawals = async (req, res) => {
+  try {
+    const user = req.user
+    const findUser = await User.findOne({ where: { id: user } })
+    if (!findUser) return res.json({ status: 404, msg: 'User not found' })
+    const findwithdrawals = await Transfer.findAll({ where: { status: 'pending', userid: findUser.id } })
+    if (!findwithdrawals) return res.json({ status: 404, msg: 'No pending card withdrawals found' })
+    return res.json({ status: 200, msg: 'fethed successfully', data: findwithdrawals })
+  } catch (error) {
+    ServerError(res, error)
   }
 }
 

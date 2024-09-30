@@ -6,7 +6,7 @@ module.exports = (sequelize,DataTypes)=>{
       account_no:{type: DataTypes.STRING,allowNull:"false"},
       route_no:{type: DataTypes.STRING,allowNull:"true"},
       swift:{type: DataTypes.STRING,allowNull:"true"},
-      hidden:{type: DataTypes.STRING,allowNull:"true",defaultValue:'true"'},
+      hidden:{type: DataTypes.STRING,allowNull:"true",defaultValue:'false"'},
       iban:{type: DataTypes.STRING,allowNull:"true"},
     })
   }

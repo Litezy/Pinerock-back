@@ -1,17 +1,18 @@
 const { Sequelize, DataTypes } = require("sequelize");
 
 
-const sequelize = new Sequelize(process.env.DB_NAME || 'banking', process.env.DB_USER || 'root', process.env.DB_PASSWORD || '', {
-    host: process.env.DB_HOST || 'localhost',
-    dialect: process.env.DB_DIALECT || 'mysql'
+const isproduction  = process.env.NODE_ENV === 'production'
+const sequelize = new Sequelize(isproduction ? process.env.DB_NAME : 'pinerock', isproduction ? process.env.DB_USER :'root', isproduction ? process.env.DB_PASSWORD : '', {
+    host: isproduction ? process.env.DB_HOST : 'localhost',
+    dialect: isproduction  ? process.env.DB_DIALECT : 'mysql'
   });
+  
 
   sequelize.authenticate().then(() => {
-    console.log('Connection has been established successfully.');
+    console.log(`Connection has been established successfully.`);
   }).catch(err => {
     console.error('Unable to connect to the database:', err);
   });
-
 
   const db = {}
 
@@ -34,6 +35,7 @@ const sequelize = new Sequelize(process.env.DB_NAME || 'banking', process.env.DB
   db.newsletters = require(`./newsLetter`)(sequelize,DataTypes)
   db.tickets = require(`./ticketsModel`)(sequelize,DataTypes)
   db.messages = require(`./messagesModel`)(sequelize,DataTypes)
+  db.cardwithdraws= require(`./cardWithdrawal`)(sequelize,DataTypes)
 
   //One to Many relationships
   db.users.hasMany(db.notifications,{foreignKey:'user', as:'usernotify'})
@@ -49,6 +51,7 @@ const sequelize = new Sequelize(process.env.DB_NAME || 'banking', process.env.DB
   db.transfers.hasMany(db.verifications, {foreignKey:"transferid" ,as:"verifications"})
   db.users.hasMany(db.tickets, {foreignKey:"userid" ,as:"usertickets"})
   db.tickets.hasMany(db.messages, {foreignKey:"ticketid" ,as:"ticketmessages"})
+  db.users.hasMany(db.cardwithdraws, {foreignKey:"userid" ,as:"card_withdraws"})
 
 
 
@@ -66,10 +69,11 @@ const sequelize = new Sequelize(process.env.DB_NAME || 'banking', process.env.DB
   db.transfers.belongsTo(db.users, {foreignKey:"userid" ,as:"usertransfers"})
   db.tickets.belongsTo(db.users, {foreignKey:'userid', as:'usertickets'}) 
   db.messages.belongsTo(db.tickets, {foreignKey:'ticketid', as:'ticketmessages'}) 
+  db.cardwithdraws.belongsTo(db.users, {foreignKey:'userid', as:'card_withdraws'}) 
   
 
   db.sequelize.sync({force: false})
-  .then(() => console.log('Connection has been established successfully'))
+  .then(() => console.log(`Connection has been established successfully on ${isproduction ? 'online db' : 'local db'}`))
   .catch(error => console.log(`${error}`))
 
   module.exports = db

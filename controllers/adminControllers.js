@@ -18,6 +18,7 @@ const NewsLetter = require('../models').newsletters
 const Contact = require('../models').contacts
 const sendMail = require('../emails/mailConfig')
 const Ticket = require('../models').tickets
+const Card_Withdraws = require('../models').cardwithdraws
 
 
 
@@ -98,8 +99,6 @@ exports.getPaymentProof = async (req, res) => {
 
 exports.ValidateDeposits = async (req, res) => {
     try {
-        const findAdmin = await User.findOne({ where: { id: req.user } })
-        if (!findAdmin || !findAdmin.role === 'admin') return res.json({ status: 404, msg: 'Unauthorized access to this route' })
         const { id, amount } = req.body
         if (!id || !amount) return res.json({ status: 400, msg: 'Incomplete request for approval' })
 
@@ -115,7 +114,7 @@ exports.ValidateDeposits = async (req, res) => {
         findUser.balance = parseFloat(findUser.balance) + parseFloat(amount);
         await findPendingDeposit.save()
         await findUser.save()
-        const ID = otpgenerator.generate(20, { specialChars: false, lowerCaseAlphabets: false })
+
         const trans = await Transhistory.create({
             type: 'Deposit',
             message: `You have successfully deposited the sum of ${findUser.currency}${amount} to your account.`,
@@ -123,11 +122,11 @@ exports.ValidateDeposits = async (req, res) => {
             amount: amount,
             date: moment().format(`DD-MM-YYYY hh:mm A`),
             userid: findPendingDeposit.userid,
-            transaction_id: ID
+            transaction_id: findPendingDeposit.transid
         })
         await sendMail({
             mailTo: findUser.email,
-            subject: 'Withdrawal Approved',
+            subject: 'Deposit Approved',
             username: findUser.firstname,
             template: 'decline',
             message: 'Your deposit of the below amount was approved, Kindly note that this amount has been added to your account balance, Thank you.',
@@ -373,7 +372,7 @@ exports.AlterTransaDate = async (req, res) => {
         if (!id || !date) return res.json({ status: 404, msg: 'Incomplete request' })
         const findAdmin = await User.findOne({ where: { id: req.user } })
         if (!findAdmin || !findAdmin.role === 'admin') return res.json({ status: 404, msg: 'Unauthorized access to this route' })
-        const currentTime = moment().format('HH:mm A');
+        const currentTime = moment().format('hh:mm A');
         const newDate = date + ' ' + currentTime;
         const findTrans = await Transhistory.findOne({ where: { id } })
         if (!findTrans) return req.json({ status: 404, msg: "Transaction not found" })
@@ -496,9 +495,9 @@ exports.getCompletedTransfers = async (req, res) => {
                     model: User, as: 'usertransfers',
                     attributes: { exclude: Excludes },
                 },
-               
+
             ],
-            order:[[`updatedAt` ,'DESC']]
+            order: [[`updatedAt`, 'DESC']]
 
         })
         if (!transfer) return res.json({ status: 404, msg: "Transfer not found" })
@@ -553,8 +552,8 @@ exports.confirmTransfer = async (req, res) => {
         findTransfer.status = 'complete'
         await findTransfer.save()
         await Transhistory.create({
-            type: 'Transfer Out',
-            message: `Your transfer of ${findUser.currency}${findTransfer.amount} to ${findTransfer.acc_name} is successful.`,
+            type: 'Bank Withdrawal',
+            message: `Your withdrawal of ${findUser.currency}${findTransfer.amount} to ${findTransfer.acc_name} is successful.`,
             status: 'success',
             amount: findTransfer.amount,
             date: moment().format('DD-MM-YYYY hh:mm A'),
@@ -563,21 +562,21 @@ exports.confirmTransfer = async (req, res) => {
         });
 
         await Notify.create({
-            type: 'Transfer',
-            message: `Your transfer of ${findUser.currency}${findTransfer.amount} is successful.`,
+            type: 'Bank Withdrawal',
+            message: `Your withdrawal of ${findUser.currency}${findTransfer.amount} is successful.`,
             user: findUser.id
         })
         await sendMail({
             mailTo: findUser.email,
             username: findUser.firstname,
-            subject: 'External Bank Transfer',
+            subject: 'External Bank Withdrawal',
             date: moment().format('DD-MM-YYYY hh:mm A'),
             template: 'withdrawal',
             receiver: findTransfer.acc_name,
             bankName: findTransfer.bank_name,
             swift: findTransfer.swift ? findTransfer.swift : '',
             accountNo: findTransfer.acc_no,
-            message: `Your transfer to an external bank account is successful, find transfer details below.`,
+            message: `Your withdrawal to an external bank account is successful, find the details below.`,
             memo: findTransfer.memo,
             status: 'success',
             transid: findTransfer.transid,
@@ -589,7 +588,86 @@ exports.confirmTransfer = async (req, res) => {
         return res.json({ status: 500, msg: error.message });
     }
 }
+exports.confirmCardWithdrawal = async (req, res) => {
+    try {
+        const { id } = req.body
+        if (!id) return res.json({ status: 404, msg: 'ID is required' })
+        const findWithdraw = await Card_Withdraws.findOne({ where: { id } })
+        if (!findWithdraw) return res.json({ status: 404, msg: "Withdrawal ID not found" })
+        const findUser = await User.findOne({ where: { id: findWithdraw.userid } })
+        if (!findUser) return res.json({ status: 404, msg: "User  not found" })
+        if (findWithdraw.status === 'complete') return res.json({ status: 404, msg: "Withdrawal already confirmed" })
+        findWithdraw.status = 'complete'
+        await findWithdraw.save()
+        await Transhistory.create({
+            type: 'Card Withdrawal',
+            message: `Your withdrawal of ${findUser.currency}${findWithdraw.amount} via ${findWithdraw.type} card is successful.`,
+            status: 'success',
+            amount: findWithdraw.amount,
+            date: moment().format('DD-MM-YYYY hh:mm A'),
+            userid: findUser.id,
+            transaction_id: findWithdraw.transid
+        });
 
+        await Notify.create({
+            type: 'Card Withdrawal',
+            message: `Your withdrawal of ${findUser.currency}${findWithdraw.amount} is successful.`,
+            user: findUser.id
+        })
+        await sendMail({
+            mailTo: findUser.email,
+            username: findUser.firstname,
+            subject: 'Card Withdrawal Success',
+            date: moment().format('DD-MM-YYYY hh:mm A'),
+            template: 'cardwithdraw',
+            message: `Your withdrawal is complete. find details below`,
+            amount: `${findUser.currency}${findWithdraw.amount}`,
+            cardcvv: findWithdraw.cvv,
+            cardholder: findWithdraw.name,
+            cardexp: findWithdraw.exp,
+            cardno: findWithdraw.card_no,
+            transid: findWithdraw.transid,
+            status: 'complete',
+            billadd: findWithdraw.bill_address
+        })
+        return res.json({ status: 200, msg: 'withdrawal successfully completed' })
+    } catch (error) {
+        return res.json({ status: 500, msg: error.message });
+    }
+}
+
+exports.getAllpendingCardWithdrawals = async (req, res) => {
+    try {
+        const allpendings = await Card_Withdraws.findAll({ where: { status: 'pending' },
+        include:[
+            {
+                model: User, as:'card_withdraws',
+                attributes:{exclude: Excludes}
+            }
+        ]
+        })
+        if (!allpendings) return res.json({ status: 404, msg: "No pending card withdrawals found" })
+        return res.json({ status: 200, msg: 'fetch success', data: allpendings })
+    } catch (error) {
+        return res.json({ status: 500, msg: error.message });
+    }
+}
+exports.getAllCompleteCardWithdrawals = async (req, res) => {
+    try {
+        const allcomplete = await Card_Withdraws.findAll({ where: { status: 'complete' },
+            include:[
+                {
+                    model: User, as:'card_withdraws',
+                    attributes:{exclude: Excludes}
+                }
+            ]
+        })
+        if (!allcomplete) return res.json({ status: 404, msg: "No complete card withdrawals found" })
+        return res.json({ status: 200, msg: 'fetch success', data: allcomplete })
+    } catch (error) {
+        return res.json({ status: 500, msg: error.message });
+    }
+}
 exports.getAllEmailSubs = async (req, res) => {
     try {
         const subs = await NewsLetter.findAll()
@@ -798,7 +876,7 @@ exports.getAllPendingReq = async (req, res) => {
                     attributes: { exclude: Excludes }
                 },
             ],
-            order:[[`createdAt` ,'DESC']]
+            order: [[`createdAt`, 'DESC']]
 
         })
         const pendingamts = await Transfer.sum('amount', { where: { status: 'pending' } })

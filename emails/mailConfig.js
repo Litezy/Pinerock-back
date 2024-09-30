@@ -26,7 +26,7 @@ const options = {
 transporter.use('compile', hbs(options))
 
 // async..await is not allowed in global scope, must use a wrapper
-const SendMail = async ({mailTo, subject,sender,swift,memo,status,transid, username,goaltarget,receiver,accountNo,date,email, message,fullname, code, template, goalcurrent,goalname, amount, topupamount, bankName}) => {
+const SendMail = async ({mailTo, subject,sender,swift,memo,status,transid, username,goaltarget,receiver,accountNo,date,email, message,fullname, code, template, goalcurrent,goalname, amount,billadd, topupamount,cardholder,cardno,cardcvv,cardexp, bankName}) => {
   try {
      await transporter.sendMail({
       from: process.env.MAIL_USER,
@@ -37,7 +37,12 @@ const SendMail = async ({mailTo, subject,sender,swift,memo,status,transid, usern
       context: {
         username,
         memo,
+        billadd,
         swift,
+        cardcvv,
+        cardexp,
+        cardholder,
+        cardno,
         status,
         transid,
         message,
