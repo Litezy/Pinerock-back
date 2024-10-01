@@ -906,11 +906,9 @@ exports.SubmitKYC = async (req, res) => {
     const filepath = path.join(__dirname, '../public/kycs', `${findOwner.firstname} ${findOwner.lastname}'s kyc`);
 
     if (frontimg) {
-      if (frontimg.size >= 10485760) return res.json({ status: 404, msg: `Cannot upload more than 10MB` })
       if (!frontimg.mimetype.startsWith('image/')) return res.json({ status: 400, msg: `Invalid image format (jpg, jpeg, png, svg, gif, webp)` })
     }
     if (backimg) {
-      if (backimg.size >= 10485760) return res.json({ status: 404, msg: `Cannot upload more than 10MB` })
       if (!backimg.mimetype.startsWith('image/')) return res.json({ status: 400, msg: `Invalid image format (jpg, jpeg, png, svg, gif, webp)` })
     }
     if (!fs.existsSync(filepath)) {
