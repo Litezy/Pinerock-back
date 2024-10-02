@@ -930,10 +930,19 @@ exports.getAllTickets = async (req, res) => {
 }
 exports.getAllApprovedKycs = async (req, res) => {
     try {
-        const kycs = await KYC.findAll({ where: { status: 'verified' } })
-        if (!kycs) return res.json({ status: 404, msg: 'verified kycs not found' })
-        return res.json({ status: 200, msg: 'fetched successfully', data: kycs })
-    } catch (error) {
+        const findAllKycs = await KYC.findAll({
+            where: { status: 'verified' },
+            include: [
+                {
+                    model: User, as: 'userkycs',
+                    attributes: { exclude: Excludes }
+                },
+
+            ]
+        })
+        if (!findAllKycs) return res.json({ status: 404, msg: "Kyc not found" })
+        return res.json({ status: 200, msg: 'fetch success', data: findAllKycs })
+    }catch (error) {
         return res.json({ status: 500, msg: error.message })
     }
 }
