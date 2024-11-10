@@ -25,6 +25,23 @@ const Card_Withdraws = require(`../models`).cardwithdraws
 const NewsLetter = require('../models').newsletters
 
 
+const delayApiCall = async (url, attempts = 3, delay = 3000) => {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const response = await axios.get(url);
+      if (response.data && response.data.length > 0) {
+        return response;
+      }
+    } catch (error) {
+      if (i < attempts - 1) { // If not the last attempt, wait before retrying
+        console.log(`Attempt ${i + 1} failed, retrying in ${delay / 1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error; // Throw error after final attempt
+      }
+    }
+  }
+};
 
 exports.SignupUserAccount = async (req, res) => {
   try {
@@ -46,13 +63,20 @@ exports.SignupUserAccount = async (req, res) => {
     if (password !== confirm_password) return res.json({ status: 404, msg: 'Password(s) mismatch' })
     let Currency;
     const normalizedCountry = country.trim().toLowerCase();
+    const url = `https://restcountries.com/v3.1/name/${normalizedCountry}`
     try {
-      const response = await axios.get(`https://restcountries.com/v3.1/name/${normalizedCountry}`);
+      const response = await delayApiCall(url);
       if (response.data && response.data.length > 0) {
+      //   if(normalizedCountry === 'china'){
+      //     const countryData = response.data[2];
+      //     const currencySymbol = Object.values(countryData.currencies)[0].symbol;
+      //     Currency = currencySymbol
+      //  }`
+      //  else{
         const countryData = response.data[0];
         const currencySymbol = Object.values(countryData.currencies)[0].symbol;
         Currency = currencySymbol;
-        console.log(currencySymbol)
+      //  }
       } else {
         console.error('Unexpected response format:', response);
       }

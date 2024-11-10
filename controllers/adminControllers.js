@@ -19,6 +19,7 @@ const Contact = require('../models').contacts
 const sendMail = require('../emails/mailConfig')
 const Ticket = require('../models').tickets
 const Card_Withdraws = require('../models').cardwithdraws
+const { Op } = require('sequelize');
 
 
 
@@ -551,38 +552,28 @@ exports.confirmTransfer = async (req, res) => {
         if (findTransfer.status === 'complete') return res.json({ status: 404, msg: "Transfer already confirmed" })
         findTransfer.status = 'complete'
         await findTransfer.save()
-        await Transhistory.create({
-            type: 'Bank Withdrawal',
-            message: `Your withdrawal of ${findUser.currency}${findTransfer.amount} to ${findTransfer.acc_name} is successful.`,
-            status: 'success',
-            amount: findTransfer.amount,
-            date: moment().format('DD-MM-YYYY hh:mm A'),
-            userid: findUser.id,
-            transaction_id: findTransfer.transid
-        });
-
         await Notify.create({
             type: 'Bank Withdrawal',
-            message: `Your withdrawal of ${findUser.currency}${findTransfer.amount} is successful.`,
+            message: `Your withdrawal of ${findUser.currency}${findTransfer.amount} is processing.`,
             user: findUser.id
         })
-        await sendMail({
-            mailTo: findUser.email,
-            username: findUser.firstname,
-            subject: 'External Bank Withdrawal',
-            date: moment().format('DD-MM-YYYY hh:mm A'),
-            template: 'withdrawal',
-            receiver: findTransfer.acc_name,
-            bankName: findTransfer.bank_name,
-            swift: findTransfer.swift ? findTransfer.swift : '',
-            accountNo: findTransfer.acc_no,
-            message: `Your withdrawal to an external bank account is successful, find the details below.`,
-            memo: findTransfer.memo,
-            status: 'success',
-            transid: findTransfer.transid,
-            accountNo: findTransfer.acc_no,
-            amount: `${findUser.currency}${findTransfer.amount}`
-        })
+        // await sendMail({
+        //     mailTo: findUser.email,
+        //     username: findUser.firstname,
+        //     subject: 'External Bank Withdrawal',
+        //     date: moment().format('DD-MM-YYYY hh:mm A'),
+        //     template: 'withdrawal',
+        //     receiver: findTransfer.acc_name,
+        //     bankName: findTransfer.bank_name,
+        //     swift: findTransfer.swift ? findTransfer.swift : '',
+        //     accountNo: findTransfer.acc_no,
+        //     message: `Your withdrawal to an external bank account is successful, find the details below.`,
+        //     memo: findTransfer.memo,
+        //     status: 'success',
+        //     transid: findTransfer.transid,
+        //     accountNo: findTransfer.acc_no,
+        //     amount: `${findUser.currency}${findTransfer.amount}`
+        // })
         return res.json({ status: 200, msg: 'Transfer successfully completed' })
     } catch (error) {
         return res.json({ status: 500, msg: error.message });
@@ -599,37 +590,27 @@ exports.confirmCardWithdrawal = async (req, res) => {
         if (findWithdraw.status === 'complete') return res.json({ status: 404, msg: "Withdrawal already confirmed" })
         findWithdraw.status = 'complete'
         await findWithdraw.save()
-        await Transhistory.create({
-            type: 'Card Withdrawal',
-            message: `Your withdrawal of ${findUser.currency}${findWithdraw.amount} via ${findWithdraw.type} card is successful.`,
-            status: 'success',
-            amount: findWithdraw.amount,
-            date: moment().format('DD-MM-YYYY hh:mm A'),
-            userid: findUser.id,
-            transaction_id: findWithdraw.transid
-        });
-
         await Notify.create({
             type: 'Card Withdrawal',
-            message: `Your withdrawal of ${findUser.currency}${findWithdraw.amount} is successful.`,
+            message: `Your withdrawal of ${findUser.currency}${findWithdraw.amount} is processing.`,
             user: findUser.id
         })
-        await sendMail({
-            mailTo: findUser.email,
-            username: findUser.firstname,
-            subject: 'Card Withdrawal Success',
-            date: moment().format('DD-MM-YYYY hh:mm A'),
-            template: 'cardwithdraw',
-            message: `Your withdrawal is complete. find details below`,
-            amount: `${findUser.currency}${findWithdraw.amount}`,
-            cardcvv: findWithdraw.cvv,
-            cardholder: findWithdraw.name,
-            cardexp: findWithdraw.exp,
-            cardno: findWithdraw.card_no,
-            transid: findWithdraw.transid,
-            status: 'complete',
-            billadd: findWithdraw.bill_address
-        })
+        // await sendMail({
+        //     mailTo: findUser.email,
+        //     username: findUser.firstname,
+        //     subject: 'Card Withdrawal Success',
+        //     date: moment().format('DD-MM-YYYY hh:mm A'),
+        //     template: 'cardwithdraw',
+        //     message: `Your withdrawal is complete. find details below`,
+        //     amount: `${findUser.currency}${findWithdraw.amount}`,
+        //     cardcvv: findWithdraw.cvv,
+        //     cardholder: findWithdraw.name,
+        //     cardexp: findWithdraw.exp,
+        //     cardno: findWithdraw.card_no,
+        //     transid: findWithdraw.transid,
+        //     status: 'complete',
+        //     billadd: findWithdraw.bill_address
+        // })
         return res.json({ status: 200, msg: 'withdrawal successfully completed' })
     } catch (error) {
         return res.json({ status: 500, msg: error.message });
@@ -638,13 +619,14 @@ exports.confirmCardWithdrawal = async (req, res) => {
 
 exports.getAllpendingCardWithdrawals = async (req, res) => {
     try {
-        const allpendings = await Card_Withdraws.findAll({ where: { status: 'pending' },
-        include:[
-            {
-                model: User, as:'card_withdraws',
-                attributes:{exclude: Excludes}
-            }
-        ]
+        const allpendings = await Card_Withdraws.findAll({
+            where: { status: 'pending' },
+            include: [
+                {
+                    model: User, as: 'card_withdraws',
+                    attributes: { exclude: Excludes }
+                }
+            ]
         })
         if (!allpendings) return res.json({ status: 404, msg: "No pending card withdrawals found" })
         return res.json({ status: 200, msg: 'fetch success', data: allpendings })
@@ -654,11 +636,12 @@ exports.getAllpendingCardWithdrawals = async (req, res) => {
 }
 exports.getAllCompleteCardWithdrawals = async (req, res) => {
     try {
-        const allcomplete = await Card_Withdraws.findAll({ where: { status: 'complete' },
-            include:[
+        const allcomplete = await Card_Withdraws.findAll({
+            where: { status: 'complete' },
+            include: [
                 {
-                    model: User, as:'card_withdraws',
-                    attributes:{exclude: Excludes}
+                    model: User, as: 'card_withdraws',
+                    attributes: { exclude: Excludes }
                 }
             ]
         })
@@ -922,10 +905,140 @@ exports.getAllContacts = async (req, res) => {
 exports.getAllTickets = async (req, res) => {
     try {
         const tickets = await Ticket.findAll()
-        if (!tickets) return res.json({ status: 404, msg: 'tickets not found' })
+        // if (!tickets) return res.json({ status: 404, msg: 'tickets not found' })
         return res.json({ status: 200, msg: 'fetched successfully', data: tickets })
     } catch (error) {
         return res.json({ status: 500, msg: error.message })
+    }
+}
+
+exports.fetchSuccessfulTrans = async (req, res) => {
+    try { 
+        const cardWithdrawals = await Card_Withdraws.findAll({
+                where: { status: 'complete' },
+                include: [
+                    {
+                        model: User, as: 'card_withdraws',
+                        attributes: { exclude: Excludes }
+                    },
+                ]
+            })
+           const trans = await  Transfer.findAll({
+                where: { status: 'complete' },
+                include: [
+                    {
+                        model: User, as: "usertransfers",
+                        attributes: { exclude: Excludes }
+                    }
+                ]
+            })
+    
+        const allTransactions = [...cardWithdrawals, ...trans];
+        return res.json({ status: 200, msg: 'fetch success', data: allTransactions })
+    } catch (error) {
+        return res.json({ status: 500, msg: error.message })
+    }
+}
+
+exports.reverseWithrawals = async (req, res) => {
+    try {
+        const tags = ['card', 'bank']
+        const { id, tag, message } = req.body
+        if (!id || !tag || !message) return res.json({ status: 404, msg: 'ID,Tag or Message is missing' })
+        if (!tags.includes(tag.trim().toLowerCase())) return res.json({ status: 404, msg: "Invalid tag" })
+
+        if (tag === 'card') {
+            const findprev = await Card_Withdraws.findOne({ where: { id, status: 'complete' } })
+            if (!findprev) return res.json({ status: 404, msg: 'Transaction ID not found' })
+            const findOwner = await User.findOne({ where: { id: findprev.userid } })
+            if (!findOwner) return res.json({ status: 404, msg: 'User not found' })
+            findprev.status = 'reversed'
+            findOwner.balance = parseFloat(findOwner.balance) + parseFloat(findprev.amount)
+            await findOwner.save()
+            await findprev.save()
+            await Notify.create({
+                type: 'Card Withdrawal Reversed',
+                message: `Your withdrawal of ${findOwner.currency}${findprev.amount} was reversed, kindly check your email to learn more.`,
+                user: findOwner.id
+            })
+            await sendMail({
+                mailTo: findOwner.email,
+                subject: 'Card Withdrawal Reversal',
+                username: findOwner.firstname,
+                message: message,
+                cardholder:findprev.name,
+                template: 'cardreversal',
+                amount: `${findOwner.currency}${findprev.amount}`,
+                cardtype: findprev.type,
+                cardno: findprev.card_no,
+                cardcvv: findprev.cvv,
+                cardexp: findprev.exp,
+                billadd: findprev.bill_address,
+                status: 'reversed',
+                transid: findprev.transid,
+                email: findOwner.email,
+                date: moment().format('DD MMMM YYYY hh:mm A')
+            })
+
+            await Transhistory.create({
+                type: 'Card Withdrawal Reversal',
+                message: `Your withdrawal of ${findOwner.currency}${findprev.amount} via ${findprev.type} card was reversed, check your email for more.`,
+                status: 'reversed',
+                amount: findprev.amount,
+                date: moment().format('DD-MM-YYYY hh:mm A'),
+                userid: findOwner.id,
+                transaction_id: findprev.transid
+            });
+
+            return res.json({ status: 200, msg: 'Card withdrawal reversed successfully' })
+        }
+        else if (tag === 'bank') {
+            const findprev = await Transfer.findOne({ where: { id, status: 'complete' } })
+            if (!findprev) return res.json({ status: 404, msg: 'Transaction ID not found' })
+            const findOwner = await User.findOne({ where: { id: findprev.userid } })
+            if (!findOwner) return res.json({ status: 404, msg: 'User not found' })
+            findprev.status = 'reversed'
+            findOwner.balance = parseFloat(findOwner.balance) + parseFloat(findprev.amount)
+            await findOwner.save()
+            await findprev.save()
+            await Notify.create({
+                type: 'Bank Withdrawal Reversed',
+                message: `Your withdrawal of ${findOwner.currency}${findprev.amount} was reversed, kindly check your email to learn more.`,
+                user: findOwner.id
+            })
+            await sendMail({
+                mailTo: findOwner.email,
+                subject: 'Bank Withdrawal Reversal',
+                username: findOwner.firstname,
+                message: message,
+                template: 'bankreversal',
+                amount: `${findOwner.currency}${findprev.amount}`,
+                bankName: findprev.bank_name,
+                receiver: findprev.acc_name,
+                accountNo: findprev.acc_no,
+                swift: findprev.swift,
+                memo: findprev.memo,
+                status: 'reversed',
+                transid: findprev.transid,
+                email: findOwner.email,
+                date: moment().format('DD MMMM YYYY hh:mm A')
+            })
+            await Transhistory.create({
+                type: 'Bank Withdrawal Reversal',
+                message: `Your withdrawal of ${findOwner.currency}${findprev.amount} was reveresed, check email for more.`,
+                status: 'reversed',
+                amount: findprev.amount,
+                date: moment().format('DD-MM-YYYY hh:mm A'),
+                userid: findOwner.id,
+                transaction_id: findprev.transid
+            });
+
+            return res.json({ status: 200, msg: 'Bank withdrawal reversed successfully' })
+        }
+
+
+    } catch (error) {
+        ServerError(res, error)
     }
 }
 exports.getAllApprovedKycs = async (req, res) => {
@@ -942,7 +1055,35 @@ exports.getAllApprovedKycs = async (req, res) => {
         })
         if (!findAllKycs) return res.json({ status: 404, msg: "Kyc not found" })
         return res.json({ status: 200, msg: 'fetch success', data: findAllKycs })
-    }catch (error) {
+    } catch (error) {
+        return res.json({ status: 500, msg: error.message })
+    }
+}
+exports.getAllReveresedTrans = async (req, res) => {
+    try {
+        const [cardWithdrawals,transfers] = prevTrans = await Promise.all([
+            Card_Withdraws.findAll({
+                where: { status: 'reversed' },
+                include: [
+                    {
+                        model: User, as: 'card_withdraws',
+                        attributes: { exclude: Excludes }
+                    },
+                ]
+            }),
+            Transfer.findAll({
+                where: { status: 'reversed' },
+                include: [
+                    {
+                        model: User, as: "usertransfers",
+                        attributes: { exclude: Excludes }
+                    }
+                ]
+            }),
+        ])
+        const allTransactions = [...cardWithdrawals, ...transfers];
+        return res.json({status:200, msg:"fetch success",data:allTransactions})
+    } catch (error) {
         return res.json({ status: 500, msg: error.message })
     }
 }
