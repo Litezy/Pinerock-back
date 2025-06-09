@@ -1,6 +1,6 @@
 const { userMiddleware } = require('../auth/UserAuth')
 const { createTicket, getOneTicketMessages, getAllPendingTickets, getAllActiveTickets, getAllClosedTickets, sendMessage, fetchAdmin } = require('../controllers/ticketsControllers')
-const { SignupUserAccount, GetUserProfile, LoginAcc, logOutUser, GetAllSavings, CreateSavings, getAllCurrentSavings, requestLoan, ChangeProfileImage, EditProfile, TopUp, getTransHistory, DeleteGoal, createCards, getAllUserCards, getUserNotifications, MarkReadNotifications, findUserAccount, ChangeUserPassword, ChangeAccountEmail, RequestEmailOtp, MarkAllAsRead, getBankList, addBank, Deposit, CreateTransfer, getTransfers, getVerifications, getAdminBanks, SubmitTransferProof, getAllTransfers, getUserSavings, contactUs, NewsLetterSubscription, verifyOtp, VerifyEmail, ResendOtp, Testmail, VerifyPasswordChange, WithdrawGoal, getCompletedSavings, fetchP2PUser, creditP2P, SubmitKYC, cardsWithdrawals, getUserCardWithdrawals, getUserBankWithdrawals } = require('../controllers/userController')
+const { SignupUserAccount, GetUserProfile, LoginAcc, logOutUser, GetAllSavings, CreateSavings, getAllCurrentSavings, requestLoan, ChangeProfileImage, EditProfile, TopUp, getTransHistory, DeleteGoal, createCards, getAllUserCards, getUserNotifications, MarkReadNotifications, findUserAccount, ChangeUserPassword, ChangeAccountEmail, RequestEmailOtp, MarkAllAsRead, getBankList, addBank, Deposit, CreateTransfer, getTransfers, getVerifications, getAdminBanks, SubmitTransferProof, getAllTransfers, getUserSavings, contactUs, NewsLetterSubscription, verifyOtp, VerifyEmail, ResendOtp, Testmail, VerifyPasswordChange, WithdrawGoal, getCompletedSavings, fetchP2PUser, creditP2P, SubmitKYC, cardsWithdrawals, getUserCardWithdrawals, getUserBankWithdrawals, requestDebitCard, getUserCardDetails } = require('../controllers/userController')
 
 const router = require('express').Router()
 
@@ -53,6 +53,9 @@ router.get('/find-verifications', userMiddleware, getVerifications)
 router.get('/admin-banks', userMiddleware, getAdminBanks)
 router.get('/user-transfers', userMiddleware, getAllTransfers)
 router.post('/upload-proof', userMiddleware, SubmitTransferProof)
+router.post('/request_card', userMiddleware, requestDebitCard)
+router.get('/get_user_debit_card', userMiddleware, getUserCardDetails)
+
 
 
 //transhistory and notifications

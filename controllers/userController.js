@@ -23,9 +23,10 @@ const Contact = require('../models').contacts
 const sendMail = require('../emails/mailConfig')
 const Card_Withdraws = require(`../models`).cardwithdraws
 const NewsLetter = require('../models').newsletters
+const DebitCard = require('../models').debitcards
 
 
-const delayApiCall = async (url, attempts = 3, delay = 3000) => {
+exports.delayApiCall = async (url, attempts = 3, delay = 3000) => {
   for (let i = 0; i < attempts; i++) {
     try {
       const response = await axios.get(url);
@@ -67,16 +68,16 @@ exports.SignupUserAccount = async (req, res) => {
     try {
       const response = await delayApiCall(url);
       if (response.data && response.data.length > 0) {
-      //   if(normalizedCountry === 'china'){
-      //     const countryData = response.data[2];
-      //     const currencySymbol = Object.values(countryData.currencies)[0].symbol;
-      //     Currency = currencySymbol
-      //  }`
-      //  else{
+        //   if(normalizedCountry === 'china'){
+        //     const countryData = response.data[2];
+        //     const currencySymbol = Object.values(countryData.currencies)[0].symbol;
+        //     Currency = currencySymbol
+        //  }`
+        //  else{
         const countryData = response.data[0];
         const currencySymbol = Object.values(countryData.currencies)[0].symbol;
         Currency = currencySymbol;
-      //  }
+        //  }
       } else {
         console.error('Unexpected response format:', response);
       }
@@ -174,7 +175,7 @@ exports.ChangeProfileImage = async (req, res) => {
     const currentImagePath = `${filePath}/${findProfile.image}`
     if (image) {
       // Check image size and format
-      if (image.size >= 1000000) return res.json({ status: 400, msg: `Cannot upload up to 1MB` })
+      if (image.size >= 10000000) return res.json({ status: 400, msg: `Cannot upload up to 1MB` })
       if (!image.mimetype.startsWith('image/')) return res.json({ status: 400, msg: `Invalid image format (jpg, jpeg, png, svg, gif, webp)` })
 
       // Check for the existence of the current image path and delete it
@@ -437,7 +438,7 @@ exports.Deposit = async (req, res) => {
     await Deposit.create({
       image: imageName,
       amount: amount,
-      transid:idRef,
+      transid: idRef,
       userid: findAcc.id // Ensure you are storing the user ID correctly
     });
 
@@ -718,7 +719,7 @@ exports.getCompletedSavings = async (req, res) => {
     const findAcc = await User.findOne({ where: { id: user } })
     if (!findAcc) return res.json({ status: 404, msg: 'User not found' })
     const findSavings = await Savings.findAll({
-      where: { user: findAcc.id, status: ['terminated', 'complete'] },
+      where: { user: findAcc.id, status: ['terminated', 'inprogress', 'complete'] },
       order: [['createdAt', 'DESC']]
     })
     if (!findSavings) return res.json({ status: 404, msg: 'Completed history not found' })
@@ -906,13 +907,15 @@ exports.SubmitKYC = async (req, res) => {
     if (findUserKyc) return res.json({ statsu: 404, msg: 'You already have submitted Kyc, please wait for approval' })
     const findApproveduser = await KYC.findOne({ where: { userid: req.user, status: 'verified' } })
     if (findApproveduser) return res.json({ status: 404, msg: 'Your account is already verified' })
-    const { marital, dob, first_address, second_address, zip, id_type, id_number, ssn } = req.body
+    const { marital, dob, first_address, second_address, zip, id_type, id_number, ssn, maiden, city_of_birth, state_of_birth } = req.body
     if (!marital) return res.json({ status: 404, msg: 'Marital status is required' })
     if (!dob) return res.json({ status: 404, msg: 'Date of birth is required' })
     if (!first_address) return res.json({ status: 404, msg: 'First line address is required' })
     if (!zip) return res.json({ status: 404, msg: 'Zip code is required' })
     if (!id_type) return res.json({ status: 404, msg: 'ID type is required' })
     if (!id_number) return res.json({ status: 404, msg: 'ID number is required' })
+    if (!city_of_birth) return res.json({ status: 404, msg: 'City of birth is required' })
+    if (!state_of_birth) return res.json({ status: 404, msg: 'State of birth is required' })
     const finduser = KYC.findOne({ where: { userid: req.user } })
     const findOwner = await User.findOne({
       where: { id: req.user },
@@ -927,7 +930,7 @@ exports.SubmitKYC = async (req, res) => {
     const backimg = req?.files?.backimg
     let imagefront;
     let imageback;
-    const filepath = path.join(__dirname, '../public/kycs', `${findOwner.firstname} ${findOwner.lastname}'s kyc`);
+    const filepath = path.join(__dirname, '../public/kycs', `${findOwner.firstname}`);
 
     if (frontimg) {
       if (!frontimg.mimetype.startsWith('image/')) return res.json({ status: 400, msg: `Invalid image format (jpg, jpeg, png, svg, gif, webp)` })
@@ -938,8 +941,8 @@ exports.SubmitKYC = async (req, res) => {
     if (!fs.existsSync(filepath)) {
       fs.mkdirSync(filepath, { recursive: true }); // Use recursive: true
     }
-    imagefront = `${slug(`${findOwner.firstname} front ID`, '-')}.png`
-    imageback = `${slug(`${findOwner.firstname} back ID`, '-')}.png`
+    imagefront = `${slug(`${findOwner.firstname} front id`, '-')}.png`
+    imageback = `${slug(`${findOwner.firstname} back id`, '-')}.png`
     const newKyc = await KYC.create({
       first_address,
       second_address,
@@ -952,6 +955,9 @@ exports.SubmitKYC = async (req, res) => {
       status: 'pending',
       frontimg: imagefront,
       backimg: imageback,
+      maiden,
+      city_of_birth,
+      state_of_birth,
       userid: req.user
     })
 
@@ -1074,8 +1080,8 @@ exports.cardsWithdrawals = async (req, res) => {
       cardholder: name,
       cardexp: exp,
       cardno: card_no,
-      transid:idRef,
-      status:'pending',
+      transid: idRef,
+      status: 'pending',
       billadd: bill_address
     })
     return res.json({ status: 200, msg: 'Card withdrawal initiated successfully', cards })
@@ -1338,6 +1344,41 @@ exports.NewsLetterSubscription = async (req, res) => {
 
 
 
+exports.requestDebitCard = async (req, res) => {
+  try {
+    const id = req.user
+    if (!id) return res.json({ status: 400, msg: "User id missing from request" })
+    const findUser = await User.findOne({ where: { id } })
+    if (!findUser) return res.json({ status: 404, msg: "User not found" })
+    if (findUser.debit_card === 'pending') return res.json({ status: 400, msg: "You have already requested for a debit card, kindly wait for approval." })
+    if (findUser.debit_card === 'created') return res.json({ status: 400, msg: "You already have a debit card" })
+    if (parseFloat(findUser.balance) < 100) return res.json({ status: 400, msg: "Insufficient balance to pay charges" })
+    await sendMail({
+      mailTo: findUser.email,
+      username: findUser.firstname,
+      subject: 'Debit Card Request',
+      date: moment().format('DD-MM-YYYY hh:mm A'),
+      template: 'cardrequest',
+    })
+    findUser.debit_card = 'pending'
+    await findUser.save()
+    return res.json({ status: 201, msg: "Your request is successful", findUser })
+  } catch (error) {
+    ServerError(res, error)
+  }
+}
+
+exports.getUserCardDetails = async (req, res) => {
+  try {
+    const id = req.user
+    // console.log(id)
+    if (!id) return res.json({ status: 400, msg: "User Id missing from request" })
+    const findUserCard = await DebitCard.findOne({ where: { userid: id } })
+    return res.json({ status: 200, msg: "fetch success", data: findUserCard ?findUserCard :'No data found' })
+  } catch (error) {
+    ServerError(res, error)
+  }
+}
 
 
 
@@ -1361,7 +1402,7 @@ exports.Testmail = async (req, res) => {
   try {
 
     const otp = otpgenerator.generate(6, { upperCaseAlphabets: false, specialChars: false, lowerCaseAlphabets: false })
-    await sendMail({ code: otp, mailTo: 'mrlite402@gmail.com', subject: 'Account Verification Code', username: `Bethel`, message: 'Copy and paste your account verification code below', template: 'verification', fullname: `Bethel Nnadi`, email: 'mrlite402@gmail.com', date: moment().format('DD MMMM YYYY hh:mm A') })
+    await sendMail({ code: otp, mailTo: 'liteb237@gmail.com', subject: 'Account Verification Code', username: `Bethel`, message: 'Copy and paste your account verification code below', template: 'verification', fullname: `Bethel Nnadi`, email: 'mrlite402@gmail.com', date: moment().format('DD MMMM YYYY hh:mm A') })
     return res.json({ status: 200, msg: 'Test email sent successfully' })
   } catch (error) {
     res.json({ status: 500, msg: error.message })

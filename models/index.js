@@ -4,7 +4,8 @@ const { Sequelize, DataTypes } = require("sequelize");
 const isproduction  = process.env.NODE_ENV === 'production'
 const sequelize = new Sequelize(isproduction ? process.env.DB_NAME : 'pinerock', isproduction ? process.env.DB_USER :'root', isproduction ? process.env.DB_PASSWORD : '', {
     host: isproduction ? process.env.DB_HOST : 'localhost',
-    dialect: isproduction  ? process.env.DB_DIALECT : 'mysql'
+    dialect: isproduction  ? process.env.DB_DIALECT : 'mysql',
+    logging:false
   });
   
 
@@ -36,6 +37,7 @@ const sequelize = new Sequelize(isproduction ? process.env.DB_NAME : 'pinerock',
   db.tickets = require(`./ticketsModel`)(sequelize,DataTypes)
   db.messages = require(`./messagesModel`)(sequelize,DataTypes)
   db.cardwithdraws= require(`./cardWithdrawal`)(sequelize,DataTypes)
+  db.debitcards= require(`./debitCardModels`)(sequelize,DataTypes)
 
   //One to Many relationships
   db.users.hasMany(db.notifications,{foreignKey:'user', as:'usernotify'})
@@ -52,6 +54,7 @@ const sequelize = new Sequelize(isproduction ? process.env.DB_NAME : 'pinerock',
   db.users.hasMany(db.tickets, {foreignKey:"userid" ,as:"usertickets"})
   db.tickets.hasMany(db.messages, {foreignKey:"ticketid" ,as:"ticketmessages"})
   db.users.hasMany(db.cardwithdraws, {foreignKey:"userid" ,as:"card_withdraws"})
+  db.users.hasOne(db.debitcards, {foreignKey:"userid" ,as:"user_debit_card"})
 
 
 
@@ -70,6 +73,7 @@ const sequelize = new Sequelize(isproduction ? process.env.DB_NAME : 'pinerock',
   db.tickets.belongsTo(db.users, {foreignKey:'userid', as:'usertickets'}) 
   db.messages.belongsTo(db.tickets, {foreignKey:'ticketid', as:'ticketmessages'}) 
   db.cardwithdraws.belongsTo(db.users, {foreignKey:'userid', as:'card_withdraws'}) 
+  db.debitcards.belongsTo(db.users, {foreignKey:'userid', as:'user_debit_card'}) 
   
 
   db.sequelize.sync({force: false})

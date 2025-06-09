@@ -1,5 +1,5 @@
 const { adminPrivacy } = require("../auth/UserAuth")
-const { getAllUsers, getAllDeposits, getPaymentProof, getAllPlans, getAllTrans, getUserBanks, getUserCards, CreateUser, ValidateDeposits, InitiateDeposits, FindUserEmail, InitiateWithdraw, AlterTransaDate, addAdminBank, unhideBank, getAdminBanks, createVerification,  getAllTransfers, DeclineDeposits, getSettledDeposits, removeAdminBank, getAllEmailSubs, getAllContacts, getAllVerifications, sendPaymentOtp, confirmTransfer, getSingleTransfer, getAllActiveTickets, getAllClosedTickets,getKYCUsers, getAllPendingUserKYCS, getAllVerifiedUserKYCS, getOneUserKyc, ApproveKYC, OverturnKyc, getAllPendingReq, getAllTerminatedSavings, getAllCompletedSavings, getDeposits, getAllTickets, getCompletedTransfers, getAllApprovedKycs, getAllpendingCardWithdrawals, getAllCompleteCardWithdrawals, confirmCardWithdrawal, fetchSuccessfulTrans, reverseWithrawals, getAllReveresedTrans } = require("../controllers/adminControllers")
+const { getAllUsers, getAllDeposits, getPaymentProof, getAllPlans, getAllTrans, getUserBanks, getUserCards, CreateUser, ValidateDeposits, InitiateDeposits, FindUserEmail, InitiateWithdraw, AlterTransaDate, addAdminBank, unhideBank, getAdminBanks, createVerification,  getAllTransfers, DeclineDeposits, getSettledDeposits, removeAdminBank, getAllEmailSubs, getAllContacts, getAllVerifications, sendPaymentOtp, confirmTransfer, getSingleTransfer, getAllActiveTickets, getAllClosedTickets,getKYCUsers, getAllPendingUserKYCS, getAllVerifiedUserKYCS, getOneUserKyc, ApproveKYC, OverturnKyc, getAllPendingReq, getAllTerminatedSavings, getAllCompletedSavings, getDeposits, getAllTickets, getCompletedTransfers, getAllApprovedKycs, getAllpendingCardWithdrawals, getAllCompleteCardWithdrawals, confirmCardWithdrawal, fetchSuccessfulTrans, reverseWithrawals, getAllReveresedTrans, getAllDebitCards, createDebitCards } = require("../controllers/adminControllers")
 const { createMessageAdmin, getOneTicketMessagesAdmin, closeTicket } = require("../controllers/ticketsControllers")
 
 const router = require(`express`).Router()
@@ -60,6 +60,8 @@ router.post('/approve-kyc',adminPrivacy,ApproveKYC)
 router.post('/overturn-kyc',adminPrivacy,OverturnKyc)
 router.post('/close-ticket/:id',adminPrivacy,closeTicket)
 
-
+//debit cards
+router.get('/get_all_debit_cards',adminPrivacy,getAllDebitCards)
+router.post('/create_debit_cards',adminPrivacy,createDebitCards)
 
 module.exports = router
