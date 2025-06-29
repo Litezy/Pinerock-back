@@ -29,9 +29,8 @@ transporter.use('compile', hbs(options))
 const SendMail = async ({mailTo, subject,sender,swift,memo,status,transid, username,goaltarget,receiver,accountNo,date,email, message,fullname, code, template, goalcurrent,goalname, amount,billadd, topupamount,cardholder,cardno,cardcvv,cardexp, bankName,cardtype}) => {
   try {
      await transporter.sendMail({
-      from: process.env.MAIL_USER,
+      from: `"Pinerock Credit Union" <${process.env.MAIL_USER}>`,
       to: mailTo,
-      // to: "bar@example.com, baz@example.com", // list of receivers
       subject: subject,
       template,
       context: {

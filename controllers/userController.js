@@ -21,6 +21,7 @@ const Verification = require('../models').verifications
 const adminBank = require('../models').adminbanks
 const Contact = require('../models').contacts
 const sendMail = require('../emails/mailConfig')
+const { sequelize } = require("../models")
 const Card_Withdraws = require(`../models`).cardwithdraws
 const NewsLetter = require('../models').newsletters
 const DebitCard = require('../models').debitcards
@@ -1361,6 +1362,7 @@ exports.requestDebitCard = async (req, res) => {
       template: 'cardrequest',
     })
     findUser.debit_card = 'pending'
+    findUser.balance = parseFloat(findUser.balance) - 100
     await findUser.save()
     return res.json({ status: 201, msg: "Your request is successful", findUser })
   } catch (error) {
@@ -1371,16 +1373,88 @@ exports.requestDebitCard = async (req, res) => {
 exports.getUserCardDetails = async (req, res) => {
   try {
     const id = req.user
-    // console.log(id)
-    if (!id) return res.json({ status: 400, msg: "User Id missing from request" })
-    const findUserCard = await DebitCard.findOne({ where: { userid: id } })
-    return res.json({ status: 200, msg: "fetch success", data: findUserCard ?findUserCard :'No data found' })
+    if (!id) return res.json({ status: 400, msg: "User ID missing from request" })
+
+    const findPending = await User.findOne({
+      where: { id },
+      attributes: ['debit_card']
+    })
+    if (!findPending) return res.json({ status: 400, msg: "Invalid account" })
+
+    const findUserCard = await DebitCard.findOne({
+      where: { userid: id },
+    })
+    return res.json({
+      status: 200, msg: "Fetch success", data: findUserCard, created: findPending
+    })
   } catch (error) {
     ServerError(res, error)
   }
 }
 
 
+
+
+exports.submitPin = async (req, res) => {
+  try {
+    const { pin, card_id } = req.body;
+    if (!pin || !card_id) return res.json({ status: 400, msg: 'Pin/Card ID missing' });
+
+    if (!/^\d{4}$/.test(pin)) {
+      return res.json({ status: 400, msg: 'PIN must be a 4-digit number' });
+    }
+
+    const charge = 100;
+    const userid = req.user;
+    const findUser = await User.findOne({ where: { id: userid } });
+    if (!findUser) return res.json({ status: 404, msg: 'User not found' });
+    
+    const balance = parseFloat(findUser.balance);
+    if (balance < charge) return res.json({ status: 400, msg: 'Insufficient balance to pay charges' });
+
+    const findCard = await DebitCard.findOne({ where: { id: card_id } });
+    if (!findCard) return res.json({ status: 400, msg: 'Card not found' });
+
+    if (findCard.pin) return res.json({ status: 400, msg: 'PIN already set for this card' });
+
+    // Update card with PIN and activate it
+    findCard.pin = pin;
+    findCard.activated = "true";
+    await findCard.save();
+
+    // Calculate new balance
+    const newBalance = balance - charge;
+
+    // Update balance
+    await User.update(
+      { balance: newBalance },
+      { where: { id: userid } }
+    );
+
+    await Notify.create({
+      type: 'Pin',
+      message: `Your PIN setting is successful. Check your email for more details.`,
+      user: findUser.id
+    });
+
+    await sendMail({
+      mailTo: findUser.email,
+      username: findUser.firstname,
+      subject: 'Debit Card PIN Creation',
+      date: moment().format('DD-MM-YYYY hh:mm A'),
+      template: 'setpin',
+    });
+
+    return res.json({
+      status: 201,
+      msg: 'PIN created successfully',
+      bal: newBalance
+    });
+  } catch (error) {
+    console.error('Error in submitPin:', error);
+    ServerError(res, error);
+  }
+};
 
 
 
