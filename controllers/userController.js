@@ -69,12 +69,7 @@ exports.SignupUserAccount = async (req, res) => {
     try {
       const response = await delayApiCall(url);
       if (response.data && response.data.length > 0) {
-        //   if(normalizedCountry === 'china'){
-        //     const countryData = response.data[2];
-        //     const currencySymbol = Object.values(countryData.currencies)[0].symbol;
-        //     Currency = currencySymbol
-        //  }`
-        //  else{
+        
         const countryData = response.data[0];
         const currencySymbol = Object.values(countryData.currencies)[0].symbol;
         Currency = currencySymbol;
